@@ -147,7 +147,8 @@
       if (res.ok) {
         btn.href = local;
         btn.setAttribute('download', EXE_NAME);
-        const mb = res.headers.get('content-length');
+        // 服务器压缩传输时 content-length 是压缩后的大小，不准，这时就不显示
+        const mb = res.headers.get('content-encoding') ? null : res.headers.get('content-length');
         if (mb) info.textContent = `Windows 10 / 11 · 单文件 EXE · ${(mb / 1048576).toFixed(1)} MB，双击即用`;
         return;
       }

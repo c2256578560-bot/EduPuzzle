@@ -393,3 +393,38 @@
 
 ### 6. 我的修改与测试记录（作者填写）
 - 
+
+---
+
+## 第 12 轮：推送 GitHub，云端打包 EXE 并上线（2026-11-05）
+
+### 1. 本轮需求
+- 选择「推 GitHub 用云端打包」得到 Windows EXE，不在本机安装编译工具。
+
+### 2. 实现思路与取舍
+- 作者自己在终端完成 `gh auth login` 登录（AI 只启动登录命令，不接触账号密码和验证码）。第一次登录因网络中断失败，重试后成功。
+- 发现 GitHub 的规则：工作流用自带令牌推送的提交不会触发其它工作流 → `release.yml` 在提交 EXE 后用 `gh workflow run` 主动启动一次 Pages 部署。
+- E 盘文件系统不记录文件归属，Git 报 dubious ownership → 只在 AI 执行的命令里临时放行，不改作者的全局 Git 配置。
+- 新增 `.gitattributes` 统一 LF 换行。
+- 创建公开仓库 → 推送 main → 用接口开启 Pages（来源 GitHub Actions）→ 打 `v4.0.0` 标签触发云端打包。
+
+### 3. 结果
+- 仓库：https://github.com/c2256578560-bot/EduPuzzle
+- PWA：https://c2256578560-bot.github.io/EduPuzzle/
+- 分享页：https://c2256578560-bot.github.io/EduPuzzle/download.html
+- Release：https://github.com/c2256578560-bot/EduPuzzle/releases/tag/v4.0.0 （EduPuzzle.exe，11.3 MB）
+- 云端编译 5 分 31 秒；EXE 小于 100 MB，已自动提交到 `release/EduPuzzle.exe` 并重新部署网站。
+
+### 4. 验证
+- 线上 PWA：Service Worker 作用范围 `/EduPuzzle/`；GitHub Pages 提供的 `.gz` 语言包（`application/gzip`，未二次压缩）可正常加载，中文 OCR 约 3 秒，混合碱数据提取正确 ✅
+- 线上分享页：下载按钮指向 `release/EduPuzzle.exe`（200），截图全部加载；Release 备用地址推算正确 ✅
+- **EXE 实机测试**：开启 WebView2 调试端口启动 EXE，连入窗口执行测试——页面运行在 `http://tauri.localhost`，正确识别为桌面版、未注册 Service Worker；32 个模板加载；使用内置语言包中文 OCR 0.4 秒，提取数据并算出 EDTA 浓度 ✅
+- **发现并修复**：分享页显示的 EXE 大小（9.6 MB）是 GitHub Pages 压缩传输后的大小，与实际 11.3 MB 不符 → 服务器压缩传输时不显示大小。
+
+### 5. 已知缺陷 / 后续
+- EXE 未做代码签名，首次运行可能出现 SmartScreen 提示。
+- 手机真机（安卓 / iPhone）上的「添加到主屏幕」和摄像头尚未实测。
+- GitHub Pages 在国内访问速度不稳定，可同时部署到 Gitee Pages 等。
+
+### 6. 我的修改与测试记录（作者填写）
+- 

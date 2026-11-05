@@ -4,6 +4,13 @@
 
 > 创意：项目作者（参赛学生）｜代码实现：AI 辅助（Claude）
 
+## 在线地址
+
+- 📱 在线体验 PWA：https://c2256578560-bot.github.io/EduPuzzle/
+- 🔗 分享下载页：https://c2256578560-bot.github.io/EduPuzzle/download.html
+- 💻 Windows EXE：https://github.com/c2256578560-bot/EduPuzzle/releases/latest/download/EduPuzzle.exe
+- 源码仓库：https://github.com/c2256578560-bot/EduPuzzle
+
 ## 三种使用方式（同一套源码）
 
 | 产物 | 适合 | 怎么用 |
