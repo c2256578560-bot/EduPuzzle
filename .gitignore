@@ -1,0 +1,8 @@
+# 构建产物
+dist/
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+
+# 本地测试截图等
+.playwright-mcp/

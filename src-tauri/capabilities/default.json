@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "主窗口权限：只用到网页本身，不开放文件系统等系统接口",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

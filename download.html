@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduPuzzle 下载 · 青科大学生全能学习工作台</title>
+<meta name="description" content="面向青岛科技大学本科生的一站式学习平台：学期课程库、双模式组卷、拍照识别实验计算、单词闯关、番茄专注。支持手机 PWA 与 Windows 桌面版。">
+<link rel="icon" href="icons/icon-192.png">
+<!-- 分享页只用内联样式，不依赖任何外部文件，单独托管也能正常显示 -->
+<style>
+  :root { --ink:#1e293b; --sub:#64748b; --brand:#6366f1; --brand2:#0ea5e9; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Microsoft YaHei", "PingFang SC", sans-serif; color:var(--ink);
+         background: linear-gradient(135deg,#eef2ff,#f0f9ff); background-attachment: fixed; line-height:1.6; }
+  .blob { position:fixed; border-radius:9999px; filter:blur(90px); opacity:.55; z-index:-1; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 64px; }
+  .card { background: rgba(255,255,255,.5); backdrop-filter: blur(24px) saturate(160%); -webkit-backdrop-filter: blur(24px) saturate(160%);
+          border:1px solid rgba(255,255,255,.7); border-radius: 24px; padding: 24px;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 8px 32px rgba(31,38,135,.10); }
+  .btn { display:inline-flex; align-items:center; gap:8px; padding:12px 22px; border-radius:14px; font-size:16px; font-weight:600;
+         text-decoration:none; border:1px solid rgba(255,255,255,.8); transition:.15s; cursor:pointer; }
+  .btn.primary { color:#fff; background: linear-gradient(90deg,var(--brand),var(--brand2)); box-shadow:0 6px 16px rgba(99,102,241,.3); border:none; }
+  .btn.ghost { color:var(--ink); background: rgba(255,255,255,.7); }
+  .btn:hover { filter:brightness(1.07); transform: translateY(-1px); }
+  h1 { font-size: clamp(28px, 5vw, 44px); margin: 12px 0 8px; }
+  h2 { font-size: 22px; margin: 0 0 16px; }
+  .sub { color: var(--sub); }
+  .grid { display:grid; gap:16px; }
+  .g3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .g2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .feat h3 { margin:6px 0 4px; font-size:17px; }
+  .feat p { margin:0; color:var(--sub); font-size:14px; }
+  .shot { width:100%; border-radius:16px; border:1px solid rgba(255,255,255,.8); box-shadow:0 6px 20px rgba(31,38,135,.12); display:block; }
+  figure { margin:0; } figcaption { text-align:center; color:var(--sub); font-size:13px; margin-top:6px; }
+  ol { padding-left: 20px; margin: 0; } li { margin: 4px 0; }
+  .tag { display:inline-block; font-size:12px; padding:2px 10px; border-radius:999px; background:rgba(99,102,241,.12); color:#4338ca; margin:2px; }
+  .hero { display:grid; grid-template-columns: 1.1fr .9fr; gap:24px; align-items:center; }
+  @media (max-width: 760px) { .hero { grid-template-columns: 1fr; } }
+  section { margin-top: 24px; }
+  footer { text-align:center; color:var(--sub); font-size:13px; margin-top:32px; }
+  code { background: rgba(255,255,255,.7); padding: 1px 6px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="blob" style="width:520px;height:520px;left:-120px;top:-120px;background:#a5b4fc"></div>
+<div class="blob" style="width:460px;height:460px;right:-100px;top:30%;background:#7dd3fc"></div>
+<div class="blob" style="width:420px;height:420px;left:30%;bottom:-160px;background:#f9a8d4"></div>
+
+<div class="wrap">
+  <!-- ===== 首屏 ===== -->
+  <div class="card hero">
+    <div>
+      <img src="icons/icon-192.png" alt="" width="64" height="64" style="border-radius:16px">
+      <h1>EduPuzzle<br><span style="font-size:.6em">青科大学生全能学习工作台</span></h1>
+      <p class="sub">面向青岛科技大学本科生：学期课程库、双模式 AI 组卷、拍照识别实验数据自动计算、单词闯关、番茄专注工作台。<b>所有数据只存在你的设备上</b>，无需注册。</p>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:18px">
+        <a class="btn primary" id="dlBtn" href="#">⬇ 下载 Windows 桌面版</a>
+        <a class="btn ghost" href="index.html">📱 在线体验 PWA 版</a>
+      </div>
+      <p class="sub" id="dlInfo" style="font-size:13px;margin-top:10px">Windows 10 / 11 · 单文件 EXE，双击即用</p>
+      <div style="margin-top:6px">
+        <span class="tag">21 个学院 · 80 个专业</span><span class="tag">6 个学期</span><span class="tag">32 个实验模板</span><span class="tag">离线可用</span>
+      </div>
+    </div>
+    <figure><img class="shot" src="docs/screenshots/dashboard.png" alt="个人工作台截图"><figcaption>液态玻璃个人工作台</figcaption></figure>
+  </div>
+
+  <!-- ===== 功能 ===== -->
+  <section class="card">
+    <h2>✨ 功能亮点</h2>
+    <div class="grid g3">
+      <div class="feat"><div style="font-size:28px">🎓</div><h3>学期精准的课程库</h3><p>学院 → 专业 → 年级学期 → 课程四级选择，大一上和大一下的课分开，考点不混。</p></div>
+      <div class="feat"><div style="font-size:28px">📝</div><h3>双模式组卷</h3><p>有资料：上传 PDF / Word / TXT，按自己的资料出题；没资料：直接用内置题库出卷。5 种题型，附答案解析。</p></div>
+      <div class="feat"><div style="font-size:28px">🧪</div><h3>实验模板库</h3><p>《无机及分析化学实验》全套 17 个模板，另有物理、化工、环境、物化模板，自动算浓度、含量、相对平均偏差。</p></div>
+      <div class="feat"><div style="font-size:28px">📷</div><h3>拍照识别数据</h3><p>拍下实验原始记录，本地 OCR 识别，校对后一键填进模板计算，结果表格可直接复制进实验报告。</p></div>
+      <div class="feat"><div style="font-size:28px">🔤</div><h3>单词闯关</h3><p>导入专业词表，词库绑定学期课程，关卡制背诵，错题循环复习。</p></div>
+      <div class="feat"><div style="font-size:28px">⏱</div><h3>专注工作台</h3><p>待办、课程通知、实验安排、番茄钟、学习统计看板，一进来就知道今天该做什么。</p></div>
+    </div>
+  </section>
+
+  <!-- ===== 截图 ===== -->
+  <section class="card">
+    <h2>🖼 界面截图</h2>
+    <div class="grid g2">
+      <figure><img class="shot" src="docs/screenshots/exam.png" alt="组卷截图" loading="lazy"><figcaption>内置题库组卷：无资料也能出卷，带答案解析</figcaption></figure>
+      <figure><img class="shot" src="docs/screenshots/lab.png" alt="实验计算截图" loading="lazy"><figcaption>邻二氮菲分光光度法：标准曲线与结果自动生成</figcaption></figure>
+    </div>
+    <div style="max-width:300px;margin:16px auto 0"><figure><img class="shot" src="docs/screenshots/mobile.png" alt="手机版截图" loading="lazy"><figcaption>手机 PWA 版</figcaption></figure></div>
+  </section>
+
+  <!-- ===== 使用说明 ===== -->
+  <section class="grid g2">
+    <div class="card">
+      <h2>📱 手机：添加到桌面</h2>
+      <ol>
+        <li>用手机浏览器打开 <a href="index.html">在线体验</a> 链接。</li>
+        <li><b>安卓（Chrome / Edge）</b>：菜单 → 「添加到主屏幕 / 安装应用」。</li>
+        <li><b>iPhone（Safari）</b>：底部「分享」按钮 → 「添加到主屏幕」。</li>
+        <li>从桌面图标打开即全屏运行；打开过一次后，断网也能用（拍照识别第一次使用后可离线）。</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2>💻 电脑：Windows 桌面版</h2>
+      <ol>
+        <li>点击上方「下载 Windows 桌面版」，得到 <code>EduPuzzle.exe</code>。</li>
+        <li>双击运行，无需安装。需要系统自带的 Microsoft Edge WebView2（Windows 10/11 一般已内置）。</li>
+        <li>首次运行若出现「Windows 已保护你的电脑」，点「更多信息 → 仍要运行」（程序未购买代码签名证书）。</li>
+        <li>也可以不下载，直接用浏览器打开在线版。</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>🔒 隐私说明</h2>
+    <p class="sub" style="margin:0">资料、试卷、识别记录、词库、待办全部保存在你自己的浏览器 / 电脑里，不上传任何服务器；拍照识别在本地完成。只有你在「设置」里填写 AI 接口并使用 AI 出题时，相关文字才会发送给你自己选择的 AI 服务。</p>
+  </section>
+
+  <footer>EduPuzzle · 青岛科技大学 AI 大赛赛道 2 参赛作品 · 创意由作者提出，AI 辅助开发</footer>
+</div>
+
+<script>
+  // ===== EXE 下载地址 =====
+  // 优先用网站上的 release/EduPuzzle.exe（EXE 小于 100 MB 时直接放仓库 release/ 文件夹）；
+  // 不存在时，自动指向 GitHub Release 的最新版本附件。
+  // 如果不是部署在 GitHub Pages 上，在这里手动填仓库，例如 'zhangsan/EduPuzzle'
+  const GITHUB_REPO = '';
+  const EXE_NAME = 'EduPuzzle.exe';
+
+  function releaseUrl() {
+    let repo = GITHUB_REPO;
+    // xxx.github.io/仓库名/download.html → xxx/仓库名
+    // xxx.github.io/download.html（个人主页仓库）→ xxx/xxx.github.io
+    const m = location.hostname.match(/^([^.]+)\.github\.io$/);
+    if (!repo && m) {
+      const seg = location.pathname.split('/').filter(Boolean);
+      const first = seg.length > 1 || (seg[0] && !seg[0].includes('.')) ? seg[0] : '';
+      repo = `${m[1]}/${first || m[1] + '.github.io'}`;
+    }
+    return repo ? `https://github.com/${repo}/releases/latest/download/${EXE_NAME}` : '';
+  }
+
+  (async () => {
+    const btn = document.getElementById('dlBtn'), info = document.getElementById('dlInfo');
+    const local = 'release/' + EXE_NAME;
+    try {
+      const res = await fetch(local, { method: 'HEAD' });
+      if (res.ok) {
+        btn.href = local;
+        btn.setAttribute('download', EXE_NAME);
+        const mb = res.headers.get('content-length');
+        if (mb) info.textContent = `Windows 10 / 11 · 单文件 EXE · ${(mb / 1048576).toFixed(1)} MB，双击即用`;
+        return;
+      }
+    } catch { /* 双击打开本页（file://）时无法检测，走下面 */ }
+    const url = releaseUrl();
+    if (url) { btn.href = url; return; }
+    btn.href = local;   // 本地预览时的兜底
+  })();
+</script>
+</body>
+</html>

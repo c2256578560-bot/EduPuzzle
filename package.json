@@ -1,0 +1,15 @@
+{
+  "name": "edupuzzle",
+  "version": "4.0.0",
+  "private": true,
+  "description": "EduPuzzle 青科大学生全能学习工作台：网页 / PWA / Tauri 桌面版共用一套源码",
+  "scripts": {
+    "build:web": "node scripts/build-web.mjs",
+    "serve": "node scripts/build-web.mjs && npx --yes http-server dist -p 8080 -c-1",
+    "tauri": "tauri",
+    "build:exe": "tauri build --no-bundle"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

@@ -1,0 +1,6 @@
+# 文本文件统一用 LF 换行（避免 Windows 改动压缩库文件）
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.gz binary
+*.exe binary

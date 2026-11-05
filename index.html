@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>EduPuzzle 青科大学生全能学习工作台</title>
+<!-- PWA：桌面图标、全屏运行、主题色 -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#6366f1">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="EduPuzzle">
+
+<!-- 依赖全部放在 lib/ 本地，不走 CDN：PWA 离线、Tauri 打包都能直接用 -->
+<script src="lib/tailwind.js"></script>
+<script src="lib/pdfjs/pdf.min.js"></script>
+<script src="lib/mammoth.browser.min.js"></script>
+<script src="lib/tesseract/tesseract.min.js"></script>
+
+<!-- ===== 液态玻璃主题色：改这里的颜色即可换风格 ===== -->
+<style>
+  :root            { --b1:#a5b4fc; --b2:#7dd3fc; --b3:#f9a8d4; --bg1:#eef2ff; --bg2:#f0f9ff; }
+  .theme-mint      { --b1:#6ee7b7; --b2:#67e8f9; --b3:#bef264; --bg1:#ecfdf5; --bg2:#f0fdfa; }
+  .theme-sakura    { --b1:#f9a8d4; --b2:#c4b5fd; --b3:#fdba74; --bg1:#fdf2f8; --bg2:#faf5ff; }
+  body { background: linear-gradient(135deg, var(--bg1), var(--bg2)); background-attachment: fixed; }
+  /* 背景里三团模糊色块，透过毛玻璃卡片形成「液态玻璃」质感 */
+  .blob { position: fixed; border-radius: 9999px; filter: blur(90px); opacity: .55; z-index: -1; pointer-events: none; }
+  /* 打印时只打印试卷 */
+  @media print {
+    body * { visibility: hidden; }
+    #paperView, #paperView * { visibility: visible; }
+    #paperView { position: absolute; left: 0; top: 0; width: 100%; background: #fff; }
+  }
+</style>
+
+<!-- 公共组件样式：用 @apply 把 Tailwind 组合成短类名 -->
+<style type="text/tailwindcss">
+  @layer components {
+    /* 毛玻璃卡片：半透明白 + 背景模糊 + 顶部高光 + 柔和阴影 */
+    .card   { @apply rounded-3xl p-5 border border-white/60 bg-white/45 backdrop-blur-2xl
+                     shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_32px_rgba(31,38,135,0.10)]; }
+    .btn    { @apply px-4 py-2 rounded-xl text-white text-sm bg-gradient-to-r from-indigo-500 to-sky-500
+                     shadow-md shadow-indigo-500/20 hover:brightness-110 disabled:opacity-50 transition; }
+    .btn2   { @apply px-4 py-2 rounded-xl text-sm text-slate-700 bg-white/60 border border-white/80 hover:bg-white/90 transition; }
+    .inp    { @apply bg-white/70 border border-white/90 rounded-xl px-3 py-1.5 text-sm w-full
+                     focus:outline-none focus:ring-2 focus:ring-indigo-300; }
+    .chip   { @apply inline-flex items-center gap-1 bg-indigo-500/10 text-indigo-700 rounded-full px-2 py-0.5 text-xs; }
+    .h2     { @apply font-bold text-slate-800 mb-3; }
+    .navlink{ @apply px-3 py-1.5 rounded-xl text-sm text-slate-600 hover:bg-white/60 transition; }
+    .navlink.active { @apply bg-white/80 text-indigo-700 font-medium shadow-sm; }
+    .stat   { @apply card p-4; }
+    .stat b { @apply block text-2xl font-bold text-slate-800 mt-1; }
+    .opt    { @apply w-full text-left bg-white/60 border border-white/90 rounded-2xl px-4 py-3 hover:bg-white/90; }
+    .opt.right { @apply bg-green-100 border-green-400; }
+    .opt.wrong { @apply bg-red-100 border-red-400; }
+    .lv     { @apply rounded-xl py-2 text-sm text-white bg-gradient-to-r from-indigo-500 to-sky-500 hover:brightness-110; }
+    .lv.locked { @apply bg-none bg-white/50 text-slate-400; }
+    .course { @apply px-3 py-1.5 rounded-xl text-sm bg-white/60 border border-white/80 hover:bg-white/90; }
+    .course.active { @apply bg-gradient-to-r from-indigo-500 to-sky-500 text-white border-transparent; }
+    .sec    { @apply font-bold mt-5 mb-2; }
+    .q      { @apply mb-3 text-sm leading-relaxed; }
+    .ans    { @apply mt-1 text-green-700 bg-green-50/80 rounded-lg px-2 py-1; }
+    .tbl    { @apply w-full text-sm border-collapse; }
+    .tbl th, .tbl td { @apply border border-white/90 px-2 py-1 text-center; }
+    .tbl th { @apply bg-white/60; }
+    .tbl td { @apply bg-white/30; }
+  }
+</style>
+</head>
+<body class="text-slate-800 min-h-screen">
+
+<!-- 背景色块 -->
+<div class="blob" style="width:520px;height:520px;left:-120px;top:-120px;background:var(--b1)"></div>
+<div class="blob" style="width:460px;height:460px;right:-100px;top:30%;background:var(--b2)"></div>
+<div class="blob" style="width:420px;height:420px;left:30%;bottom:-160px;background:var(--b3)"></div>
+
+<!-- ===== 顶部导航（玻璃条）===== -->
+<header class="sticky top-0 z-10 px-4 pt-3" style="padding-top:max(.75rem, env(safe-area-inset-top))">
+  <nav class="max-w-6xl mx-auto card !p-2 !rounded-2xl flex flex-wrap items-center gap-1">
+    <a href="#home" class="font-bold text-indigo-700 px-3 py-1 mr-2">🧩 EduPuzzle <span class="text-xs font-normal text-slate-500">青科大学习工作台</span></a>
+    <!-- 电脑 / 平板：顶部导航；手机：改用底部标签栏 -->
+    <a href="#home"     class="navlink hidden sm:inline-block" data-page="home">工作台</a>
+    <a href="#course"   class="navlink hidden sm:inline-block" data-page="course">课程库 & 组卷</a>
+    <a href="#ocr"      class="navlink hidden sm:inline-block" data-page="ocr">拍照识别计算</a>
+    <a href="#words"    class="navlink hidden sm:inline-block" data-page="words">单词闯关</a>
+    <a href="#settings" class="navlink hidden sm:inline-block" data-page="settings">设置</a>
+  </nav>
+</header>
+
+<!-- 手机底部标签栏（PWA 全屏时像原生 App） -->
+<nav class="sm:hidden fixed bottom-0 inset-x-0 z-10 px-3" style="padding-bottom:max(.5rem, env(safe-area-inset-bottom))">
+  <div class="card !p-1 !rounded-2xl grid grid-cols-5 text-center text-[11px]">
+    <a href="#home"     class="navlink !px-0 py-1" data-page="home"><div class="text-lg">🏠</div>工作台</a>
+    <a href="#course"   class="navlink !px-0 py-1" data-page="course"><div class="text-lg">📚</div>组卷</a>
+    <a href="#ocr"      class="navlink !px-0 py-1" data-page="ocr"><div class="text-lg">📷</div>拍照计算</a>
+    <a href="#words"    class="navlink !px-0 py-1" data-page="words"><div class="text-lg">🔤</div>单词</a>
+    <a href="#settings" class="navlink !px-0 py-1" data-page="settings"><div class="text-lg">⚙️</div>设置</a>
+  </div>
+</nav>
+
+<main class="max-w-6xl mx-auto px-4 pt-6 pb-28 sm:pb-6">
+
+<!-- ===================== 页面1：个人工作台 ===================== -->
+<section id="page-home" class="page space-y-4">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <!-- 问候 + 快捷入口 -->
+    <div class="card lg:col-span-2 flex flex-col justify-between">
+      <div>
+        <p id="today" class="text-sm text-slate-500"></p>
+        <h1 id="greet" class="text-2xl font-bold mt-1"></h1>
+        <p id="dashCourse" class="text-sm text-slate-600 mt-1"></p>
+      </div>
+      <div class="flex flex-wrap gap-2 mt-4">
+        <a href="#course" class="btn">📚 课程资料库 & 组卷</a>
+        <a href="#ocr"    class="btn2">📷 拍照识别计算</a>
+        <a href="#words"  class="btn2">🔤 单词闯关</a>
+      </div>
+    </div>
+    <!-- 数据看板 -->
+    <div class="grid grid-cols-2 gap-3">
+      <div class="stat"><span class="text-xs text-slate-500">⏱ 今日专注</span><b id="stFocus">0</b><span class="text-xs text-slate-400">分钟</span></div>
+      <div class="stat"><span class="text-xs text-slate-500">📝 今日刷题</span><b id="stQ">0</b><span class="text-xs text-slate-400">道</span></div>
+      <div class="stat"><span class="text-xs text-slate-500">🔤 闯关进度</span><b id="stWords">0/0</b><span class="text-xs text-slate-400">关</span></div>
+      <div class="stat"><span class="text-xs text-slate-500">📌 待办</span><b id="stTodo">0</b><span class="text-xs text-slate-400">项未完成</span></div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <!-- 待办 & 通知 -->
+    <div class="card lg:col-span-2">
+      <h2 class="h2">📌 待办 · 通知 · 实验安排</h2>
+      <div class="grid sm:grid-cols-6 gap-2 mb-3">
+        <input id="todoText" class="inp sm:col-span-3" placeholder="例如：周五前交物化实验报告" onkeydown="if(event.key==='Enter')Dash.addTodo()">
+        <select id="todoType" class="inp"><option>任务</option><option>课程通知</option><option>实验安排</option><option>考试</option></select>
+        <input id="todoDue" type="datetime-local" class="inp sm:col-span-2">
+      </div>
+      <button class="btn mb-3" onclick="Dash.addTodo()">＋ 添加</button>
+      <ul id="todoList" class="space-y-2 max-h-80 overflow-auto"></ul>
+    </div>
+
+    <!-- 番茄钟 -->
+    <div class="card text-center">
+      <h2 class="h2 text-left">⏱ 番茄专注</h2>
+      <div class="flex justify-center gap-2 mb-2">
+        <button id="modeFocus" class="btn2" onclick="Dash.switchMode('focus')">专注</button>
+        <button id="modeBreak" class="btn2" onclick="Dash.switchMode('break')">休息</button>
+      </div>
+      <div class="relative w-48 h-48 mx-auto">
+        <svg viewBox="0 0 200 200" class="w-full h-full -rotate-90">
+          <defs><linearGradient id="ringGrad"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#0ea5e9"/></linearGradient></defs>
+          <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="12"/>
+          <circle id="ring" cx="100" cy="100" r="80" fill="none" stroke="url(#ringGrad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="502.65" stroke-dashoffset="0"/>
+        </svg>
+        <div class="absolute inset-0 flex flex-col items-center justify-center">
+          <span id="timerText" class="text-4xl font-bold tabular-nums">25:00</span>
+          <span id="timerMode" class="text-xs text-slate-500">准备专注</span>
+        </div>
+      </div>
+      <div class="flex justify-center gap-2 mt-3">
+        <button id="timerBtn" class="btn" onclick="Dash.timerToggle()">开始</button>
+        <button class="btn2" onclick="Dash.timerReset()">重置</button>
+      </div>
+      <div class="flex justify-center gap-3 mt-3 text-xs text-slate-500">
+        <label>专注 <input id="focusMin" type="number" min="1" value="25" class="inp !w-14 !px-1 inline" onchange="Dash.timerReset()"> 分</label>
+        <label>休息 <input id="breakMin" type="number" min="1" value="5" class="inp !w-14 !px-1 inline" onchange="Dash.timerReset()"> 分</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="card lg:col-span-2">
+      <h2 class="h2">📊 近 7 天专注时长（分钟）</h2>
+      <div id="weekChart" class="flex items-end gap-3 h-40"></div>
+    </div>
+    <div class="card">
+      <h2 class="h2">🔁 错题复习提醒</h2>
+      <p id="dashWrong" class="text-sm text-slate-600 mb-3"></p>
+      <a href="#words" class="btn2">去复习</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 页面2：专业课程库 & 组卷 ===================== -->
+<section id="page-course" class="page hidden space-y-4">
+  <div class="card space-y-3">
+    <h2 class="font-bold">🎓 选择 学院 → 专业 → 年级学期 → 课程</h2>
+    <div class="grid sm:grid-cols-3 gap-2">
+      <select id="selCollege" class="inp" onchange="Course.onCollege()"></select>
+      <select id="selMajor" class="inp" onchange="Course.renderCourses()"></select>
+      <select id="selTerm" class="inp" onchange="Course.renderCourses()"></select>
+    </div>
+    <p class="text-xs text-slate-500">📚 = 有内置考点 / 题库　🧪 = 有配套实验计算模板</p>
+    <div id="courseGrid" class="flex flex-wrap gap-2"></div>
+    <div class="flex gap-2 max-w-md">
+      <input id="newCourse" class="inp" placeholder="清单里没有？自定义课程名" onkeydown="if(event.key==='Enter')Course.addCustom()">
+      <button class="btn2 whitespace-nowrap" onclick="Course.addCustom()">＋ 添加课程</button>
+    </div>
+    <p id="courseNote" class="text-xs text-slate-400"></p>
+  </div>
+
+  <div id="coursePanel" class="hidden">
+    <h2 id="courseTitle" class="text-xl font-bold mb-3"></h2>
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      <!-- 左栏：资料 + 参数 -->
+      <div class="lg:col-span-2 space-y-4">
+        <!-- 组卷模式切换 -->
+        <div class="card !p-1.5 flex gap-1">
+          <button id="tabDocs" class="btn flex-1" onclick="Exam.setMode('docs')">📄 私有资料组卷</button>
+          <button id="tabBank" class="btn2 flex-1" onclick="Exam.setMode('bank')">📚 内置题库组卷</button>
+        </div>
+        <!-- 模式 A：私有资料 -->
+        <div id="modeDocs" class="space-y-4">
+          <div class="card">
+            <h2 class="h2">① 上传本课程复习资料</h2>
+            <input id="fileInput" type="file" multiple accept=".pdf,.docx,.txt,.md,.markdown" class="text-sm w-full">
+            <button class="btn mt-3" onclick="Exam.upload()">导入资料库</button>
+            <p class="text-xs text-slate-400 mt-2">PDF / docx / TXT / Markdown。扫描版 PDF 请用「拍照识别」。</p>
+          </div>
+          <div class="card">
+            <h2 class="h2">② 勾选出题资料</h2>
+            <div id="docList" class="max-h-56 overflow-auto text-sm"></div>
+          </div>
+        </div>
+        <!-- 模式 B：内置题库（不用上传资料） -->
+        <div id="modeBank" class="card hidden space-y-2">
+          <h2 class="font-bold">本课程内置考点范围</h2>
+          <ul id="outlineList" class="text-sm list-disc pl-5 space-y-0.5 max-h-56 overflow-auto"></ul>
+          <p id="bankInfo" class="text-xs text-slate-500"></p>
+        </div>
+        <div class="card space-y-3">
+          <h2 class="font-bold">③ 组卷参数</h2>
+          <div class="grid grid-cols-5 gap-2 text-xs">
+            <label>单选<input id="n_choice" type="number" min="0" value="5" class="inp !px-1"></label>
+            <label>填空<input id="n_fill"   type="number" min="0" value="3" class="inp !px-1"></label>
+            <label>判断<input id="n_judge"  type="number" min="0" value="5" class="inp !px-1"></label>
+            <label>简答<input id="n_short"  type="number" min="0" value="2" class="inp !px-1"></label>
+            <label>计算<input id="n_calc"   type="number" min="0" value="1" class="inp !px-1"></label>
+          </div>
+          <div class="text-sm flex flex-wrap gap-4">
+            <label><input type="radio" name="genWay" id="genAI" checked> AI 出题（需在设置里配置接口）</label>
+            <label><input type="radio" name="genWay" id="genLocal"> <span id="genLocalLabel">本地规则出题（离线）</span></label>
+          </div>
+          <p id="genHint" class="text-xs text-slate-400"></p>
+          <div class="flex flex-wrap gap-2">
+            <button class="btn genBtn" onclick="Exam.generate('paper')">📝 生成模拟卷</button>
+            <button class="btn2 genBtn" onclick="Exam.generate(5)">随堂自测 5 题</button>
+            <button class="btn2 genBtn" onclick="Exam.generate(10)">随堂自测 10 题</button>
+          </div>
+          <p id="genStatus" class="text-sm text-indigo-600"></p>
+        </div>
+        <div class="card">
+          <h2 class="h2">🧪 本课程配套实验模板</h2>
+          <div id="courseTpls" class="flex flex-wrap gap-2 text-sm"></div>
+        </div>
+        <div class="card">
+          <h2 class="h2">🔤 本课程词库</h2>
+          <div id="courseBanks" class="flex flex-wrap gap-2 text-sm"></div>
+        </div>
+      </div>
+
+      <!-- 右栏：试卷预览 -->
+      <div class="lg:col-span-3 space-y-4">
+        <div class="card">
+          <div class="flex flex-wrap gap-2 mb-3">
+            <button class="btn2" onclick="Exam.toggleAns()">显示 / 隐藏答案</button>
+            <button class="btn2" onclick="Exam.copyMd()">复制 Markdown</button>
+            <button class="btn2" onclick="Exam.downloadMd()">导出 .md</button>
+            <button class="btn2" onclick="window.print()">打印</button>
+          </div>
+          <div id="paperView" class="min-h-[300px]"><p class="text-slate-400 text-sm">试卷会显示在这里。先上传资料，再点「生成模拟卷」。</p></div>
+        </div>
+        <div class="card">
+          <h2 class="h2">本课程历史试卷</h2>
+          <ul id="paperHistory" class="text-sm space-y-1"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 页面3：拍照识别 + 计算模板 ===================== -->
+<section id="page-ocr" class="page hidden">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <!-- 左：拍照 / 识别 / 校对 -->
+    <div class="space-y-4">
+      <div class="card space-y-3">
+        <h2 class="font-bold">① 拍照或上传图片</h2>
+        <div class="flex flex-wrap gap-2">
+          <label class="btn cursor-pointer">🖼 上传 / 手机拍照<input type="file" accept="image/*" capture="environment" class="hidden" onchange="OCR.loadImage(this)"></label>
+          <button id="camBtn" class="btn2" onclick="OCR.camera()">📷 打开电脑摄像头</button>
+        </div>
+        <video id="ocrVideo" autoplay playsinline class="hidden w-full rounded-2xl"></video>
+        <img id="ocrImg" class="hidden w-full max-h-72 object-contain rounded-2xl bg-white/40">
+        <p id="ocrEmpty" class="text-sm text-slate-400">支持实验原始数据记录、数据表、计算题题干等图片。</p>
+      </div>
+      <div class="card space-y-3">
+        <div class="flex items-center gap-2">
+          <h2 class="font-bold flex-1">② 本地 OCR 识别</h2>
+          <select id="ocrLang" class="inp !w-36"><option value="chi_sim+eng">中文 + 英文</option><option value="eng">英文 / 数字</option></select>
+          <button class="btn" onclick="OCR.recognize()">开始识别</button>
+        </div>
+        <p id="ocrStatus" class="text-sm text-indigo-600"></p>
+        <textarea id="ocrText" rows="8" class="inp font-mono" placeholder="识别结果显示在这里，可以直接修改校对；也可以手动粘贴数据"></textarea>
+        <div class="flex flex-wrap gap-2">
+          <button class="btn2" onclick="OCR.extract()">⬇ 提取数字到数据表</button>
+          <button class="btn2" onclick="OCR.aiExtract()">✨ AI 整理成数据表</button>
+        </div>
+        <details class="text-sm"><summary class="cursor-pointer text-slate-500">识别历史</summary><ul id="ocrHistory" class="mt-2 space-y-1"></ul></details>
+      </div>
+    </div>
+
+    <!-- 右：模板 + 数据 + 结果 -->
+    <div class="space-y-4">
+      <div class="card space-y-3">
+        <h2 class="font-bold">③ 实验模板库 <span id="tplCount" class="text-xs font-normal text-slate-500"></span></h2>
+        <div class="grid sm:grid-cols-2 gap-2">
+          <input id="tplSearch" class="inp" placeholder="🔍 搜索实验名称 / 课程，如：滴定、铁、硬度" oninput="OCR.renderTplSelect()">
+          <select id="tplCourse" class="inp" onchange="OCR.renderTplSelect()"></select>
+        </div>
+        <div class="flex gap-2">
+          <select id="tplSelect" class="inp" size="6" onchange="OCR.pickTpl(this.value)"></select>
+        </div>
+        <div class="flex items-center gap-2">
+          <p id="tplTitle" class="font-medium flex-1"></p>
+          <button id="tplDel" class="btn2 hidden text-red-600 whitespace-nowrap" onclick="OCR.delCustom()">删除此模板</button>
+        </div>
+        <p id="tplFormula" class="text-xs text-slate-500"></p>
+        <div id="tplParams" class="grid grid-cols-2 gap-2 text-xs"></div>
+        <div class="overflow-x-auto"><table class="tbl"><thead id="tplHead"></thead><tbody id="tplRows"></tbody></table></div>
+        <div class="flex gap-2"><button class="btn2" onclick="OCR.addRow()">＋ 加一行</button><button class="btn2" onclick="OCR.setRows([[]])">清空数据</button></div>
+      </div>
+      <div class="card">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-bold">④ 计算结果</h2>
+          <div class="flex gap-2">
+            <button class="btn2" onclick="copyText(OCR.md)">复制 Markdown</button>
+            <button class="btn2" onclick="download('计算结果.md', OCR.md)">导出 .md</button>
+          </div>
+        </div>
+        <div id="calcOut" class="overflow-auto"></div>
+      </div>
+      <details class="card">
+        <summary class="font-bold cursor-pointer">➕ 自定义计算模板</summary>
+        <div class="grid grid-cols-2 gap-2 mt-3 text-sm">
+          <input id="ctName" class="inp" placeholder="模板名，如：比热容测定">
+          <input id="ctCat"  class="inp" list="courseList" placeholder="所属课程，如：大学物理实验">
+          <input id="ctCols" class="inp col-span-2" placeholder="数据列，用逗号分隔，如：质量m/g,温差ΔT/K,热量Q/J">
+          <input id="ctFormula" class="inp" placeholder="每行公式，列依次为 a,b,c… 如：c/(a*b)">
+          <input id="ctResult"  class="inp" placeholder="结果名称，如：比热容 c">
+        </div>
+        <p class="text-xs text-slate-400 mt-2">公式可用 + − * / ** 和 Math 函数（sqrt、log、exp、sin…）。会自动给出平均值、标准偏差、相对标准偏差。</p>
+        <button class="btn mt-2" onclick="OCR.saveCustom()">保存模板</button>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 页面4：单词闯关 ===================== -->
+<section id="page-words" class="page hidden">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="space-y-4">
+      <div class="card space-y-2">
+        <h2 class="font-bold">词库</h2>
+        <select id="bankSelect" class="inp" onchange="Words.renderLevels()"></select>
+        <input id="bankCourse" class="inp" list="courseList" placeholder="导入时绑定课程（留空 = 课程库当前的学期课程）">
+        <div class="flex gap-2">
+          <label class="btn2 cursor-pointer">导入词表 txt/csv<input type="file" accept=".txt,.csv" class="hidden" onchange="Words.importFile(this)"></label>
+          <button class="btn2 text-red-600" onclick="Words.deleteBank()">删除词库</button>
+        </div>
+        <p class="text-xs text-slate-400">每行一个：<code>单词,释义</code>（逗号 / Tab / 空格分隔都行）</p>
+      </div>
+      <div class="card space-y-2">
+        <h2 class="font-bold">手动新增单词</h2>
+        <input id="newWord" class="inp" placeholder="单词 / 术语">
+        <input id="newMeaning" class="inp" placeholder="释义" onkeydown="if(event.key==='Enter')Words.addWord()">
+        <button class="btn" onclick="Words.addWord()">加入当前词库</button>
+      </div>
+      <div class="card">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-bold">错题本（<span id="wrongCount">0</span>）</h2>
+          <button class="btn" onclick="Words.startWrong()">只刷错题</button>
+        </div>
+        <ul id="wrongList" class="text-sm max-h-48 overflow-auto space-y-1"></ul>
+      </div>
+    </div>
+    <div class="lg:col-span-2 space-y-4">
+      <div class="card">
+        <h2 class="h2">选择关卡 <span class="text-xs font-normal text-slate-400">每关 10 词，正确率 ≥ 80% 解锁下一关</span></h2>
+        <div id="levelGrid" class="grid grid-cols-4 sm:grid-cols-6 gap-2"></div>
+      </div>
+      <div id="quizBox" class="card hidden">
+        <p id="quizProgress" class="text-sm text-slate-500"></p>
+        <p id="quizWord" class="text-3xl font-bold text-center my-6"></p>
+        <div id="quizOpts" class="grid sm:grid-cols-2 gap-2"></div>
+      </div>
+      <div class="card">
+        <h2 class="h2">闯关记录</h2>
+        <ul id="wordLog" class="text-sm space-y-1"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 页面5：设置 ===================== -->
+<section id="page-settings" class="page hidden">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="lg:col-span-2 space-y-4">
+      <div class="card space-y-2 text-sm">
+        <h2 class="font-bold">🤖 AI 接口（OpenAI 兼容：DeepSeek / 通义 / Kimi 等）</h2>
+        <label>接口地址<input id="aiBase" class="inp" placeholder="https://api.deepseek.com/v1"></label>
+        <label>模型名<input id="aiModel" class="inp" placeholder="deepseek-chat"></label>
+        <label>API Key<input id="aiKey" type="password" class="inp" placeholder="sk-..."></label>
+        <button class="btn" onclick="Settings.saveAI()">保存</button>
+        <p class="text-xs text-slate-400">Key 只存在本机浏览器。AI 出题 / AI 整理数据时，相关文字会发送给你配置的 AI 服务。</p>
+      </div>
+      <div class="card">
+        <h2 class="h2">本地资料（<span id="dataDocCount">0</span>）</h2>
+        <div id="dataDocs" class="text-sm overflow-auto"></div>
+      </div>
+    </div>
+    <div class="space-y-4">
+      <div class="card space-y-2">
+        <h2 class="font-bold">🎨 主题</h2>
+        <div class="flex gap-2">
+          <button class="btn2" onclick="Settings.setTheme('')">晨雾蓝</button>
+          <button class="btn2" onclick="Settings.setTheme('theme-mint')">薄荷绿</button>
+          <button class="btn2" onclick="Settings.setTheme('theme-sakura')">樱花粉</button>
+        </div>
+      </div>
+      <div class="card text-sm space-y-1" id="dataStats"></div>
+      <div class="card space-y-2">
+        <h2 class="font-bold">💾 备份与恢复</h2>
+        <button class="btn w-full" onclick="Settings.backup()">导出全部数据（JSON）</button>
+        <label class="btn2 w-full block text-center cursor-pointer">从备份恢复<input type="file" accept=".json" class="hidden" onchange="Settings.restore(this)"></label>
+        <button class="btn2 w-full text-red-600" onclick="Settings.clearAll()">清空全部本地数据</button>
+        <p class="text-xs text-slate-400">数据只在本浏览器里。备份文件含 API Key，分享前请删除。</p>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<datalist id="courseList"></datalist>
+<div id="toast" class="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-white text-sm shadow-lg hidden z-20"></div>
+
+<!-- 脚本顺序：数据 → 工具 → 存储 → 解析 → 各模块；全部是普通 script，双击 html 就能跑 -->
+<script src="js/courses.js"></script>
+<script src="js/outlines.js"></script>
+<script src="js/app.js"></script>
+<script src="js/db.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/course.js"></script>
+<script src="js/exam.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/ocr.js"></script>
+<script src="js/words.js"></script>
+<script src="js/settings.js"></script>
+</body>
+</html>

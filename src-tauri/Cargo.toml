@@ -1,0 +1,19 @@
+[package]
+name = "edupuzzle"
+version = "4.0.0"
+description = "EduPuzzle 青科大学生全能学习工作台（桌面版）"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+# 发布版：体积优先（单文件 EXE 更小）
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
